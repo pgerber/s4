@@ -1,7 +1,7 @@
 [package]
 name = "s4"
-description = "Simpler Simple Storage Service: highlevel S3 crate for easier use"
-version = "0.0.0"
+description = "Simpler Simple Storage Service: highlevel API extensions for Rusoto"
+version = "0.0.1"
 documentation = "https://docs.rs/s4"
 repository = "https://github.com/pgerber/s4"
 authors = ["Peter Gerber <peter@arbitrary.ch>"]
@@ -9,10 +9,16 @@ license = "LGPL-3.0+"
 readme = "README.md"
 keywords = ["AWS", "S3"]
 
-
 [badges]
 travis-ci = { repository = "pgerber/s4" }
 
 [dependencies]
+derive-error = "0.0"
+hyper = "0.10"
 rusoto_core = "0.30"
+rusoto_credential = "0.9"
 rusoto_s3 = "0.30"
+
+[dev-dependencies]
+tempdir = "0.3"
+rand = "0.4"
