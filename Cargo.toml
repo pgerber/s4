@@ -14,5 +14,7 @@ keywords = ["AWS", "S3"]
 travis-ci = { repository = "pgerber/s4" }
 
 [dependencies]
+hyper = "0.10"
 rusoto_core = "0.30"
+rusoto_credential = "0.9"
 rusoto_s3 = "0.30"
