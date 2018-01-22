@@ -1,10 +1,13 @@
 #[macro_use]
 extern crate derive_error;
+extern crate fallible_iterator;
 extern crate hyper;
 extern crate rusoto_core;
 extern crate rusoto_credential;
 extern crate rusoto_s3;
 
+pub mod iter;
+use iter::ObjectIter;
 pub mod error;
 use error::{S4Error, S4Result};
 
@@ -50,7 +53,11 @@ pub fn new_s3client_simple(
     ))
 }
 
-pub trait S4 {
+pub trait S4<P, D>
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
     /// Get object and write it to file `target`
     fn object_to_file<F>(&self, source: &GetObjectRequest, target: F) -> S4Result<GetObjectOutput>
     where
@@ -64,9 +71,19 @@ pub trait S4 {
     ) -> S4Result<GetObjectOutput>
     where
         W: Write;
+
+    /// Iterator over all objects
+    ///
+    /// Objects are lexicographically sorted by their key.
+    fn iter_objects(&self, bucket: &str) -> ObjectIter<P, D>;
+
+    /// Iterator over objects with given `prefix`
+    ///
+    /// Objects are lexicographically sorted by their key.
+    fn iter_objects_with_prefix(&self, bucket: &str, prefix: &str) -> ObjectIter<P, D>;
 }
 
-impl<P, D> S4 for S3Client<P, D>
+impl<P, D> S4<P, D> for S3Client<P, D>
 where
     P: ProvideAwsCredentials,
     D: DispatchSignedRequest,
@@ -101,5 +118,15 @@ where
         let mut body = resp.body.take().expect("no body");
         io::copy(&mut body, &mut target)?;
         Ok(resp)
+    }
+
+    #[inline]
+    fn iter_objects(&self, bucket: &str) -> ObjectIter<P, D> {
+        ObjectIter::new(self, bucket, None)
+    }
+
+    #[inline]
+    fn iter_objects_with_prefix(&self, bucket: &str, prefix: &str) -> ObjectIter<P, D> {
+        ObjectIter::new(self, bucket, Some(prefix))
     }
 }

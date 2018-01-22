@@ -14,6 +14,7 @@ travis-ci = { repository = "pgerber/s4" }
 
 [dependencies]
 derive-error = "0.0"
+fallible-iterator = "0.1"
 hyper = "0.10"
 rusoto_core = "0.30"
 rusoto_credential = "0.9"
