@@ -36,6 +36,16 @@ where
             exhausted: false,
         }
     }
+
+    fn next_objects(&mut self) -> Result<(), ListObjectsV2Error> {
+        let resp = self.client.list_objects_v2(&self.request)?;
+        self.objects = resp.contents.unwrap_or_else(Vec::new).into_iter();
+        match resp.next_continuation_token {
+            next @ Some(_) => self.request.continuation_token = next,
+            None => self.exhausted = true,
+        };
+        Ok(())
+    }
 }
 
 impl<'a, P, D> FallibleIterator for ObjectIter<'a, P, D>
@@ -77,21 +87,5 @@ where
             count += self.objects.len();
         }
         Ok(count)
-    }
-}
-
-impl<'a, P, D> ObjectIter<'a, P, D>
-    where
-        P: ProvideAwsCredentials,
-        D: DispatchSignedRequest,
-{
-    fn next_objects(&mut self) -> Result<(), ListObjectsV2Error> {
-        let resp = self.client.list_objects_v2(&self.request)?;
-        self.objects = resp.contents.unwrap_or_else(Vec::new).into_iter();
-        match resp.next_continuation_token {
-            next @ Some(_) => self.request.continuation_token = next,
-            None => self.exhausted = true,
-        };
-        Ok(())
     }
 }

@@ -103,5 +103,4 @@ fn count() {
     let mut iter = client.iter_objects(&bucket);
     assert!(iter.nth(2122).unwrap().is_none());
     assert_eq!(iter.count().unwrap(), 0);
-
 }
