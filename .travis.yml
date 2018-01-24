@@ -11,7 +11,3 @@ before_install:
      docker run -d --rm -p 9000:9000 --env "MINIO_ACCESS_KEY=ANTN35UAENTS5UIAEATD" \
      --env "MINIO_SECRET_KEY=TtnuieannGt2rGuie2t8Tt7urarg5nauedRndrur" --env MINIO_DOMAIN=localhost \
      minio/minio server /home/shared
-before_script:
-  - |
-     # Tests depend on some changes not yet released as of Rusoto v0.30.
-     sed -i -r 's/^(rusoto_[^=]*= ).*/\1{ git = "https:\/\/github.com\/rusoto\/rusoto", rev = "bd458ff256094f612d94f24aea21a47f8cc26c61" }/' Cargo.toml
