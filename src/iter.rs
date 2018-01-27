@@ -1,7 +1,9 @@
+use error::{S4Error, S4Result};
 use fallible_iterator::FallibleIterator;
 use rusoto_core::DispatchSignedRequest;
 use rusoto_credential::ProvideAwsCredentials;
-use rusoto_s3::{ListObjectsV2Error, ListObjectsV2Request, Object, S3, S3Client};
+use rusoto_s3::{GetObjectOutput, GetObjectRequest, ListObjectsV2Error, ListObjectsV2Request,
+                Object, S3, S3Client};
 use std::mem;
 use std::vec::IntoIter;
 
@@ -47,6 +49,17 @@ where
         };
         Ok(())
     }
+
+    fn last_internal(&mut self) -> Result<Option<Object>, ListObjectsV2Error> {
+        let mut objects = mem::replace(&mut self.objects, Vec::new().into_iter());
+        while !self.exhausted {
+            self.next_objects()?;
+            if self.objects.len() > 0 {
+                objects = mem::replace(&mut self.objects, Vec::new().into_iter());
+            }
+        }
+        Ok(objects.last())
+    }
 }
 
 impl<'a, P, D> FallibleIterator for ObjectIter<'a, P, D>
@@ -90,14 +103,83 @@ where
         Ok(count)
     }
 
+    #[inline]
     fn last(mut self) -> Result<Option<Self::Item>, Self::Error> {
-        let mut objects = mem::replace(&mut self.objects, Vec::new().into_iter());
-        while !self.exhausted {
-            self.next_objects()?;
-            if self.objects.len() > 0 {
-                objects = mem::replace(&mut self.objects, Vec::new().into_iter());
-            }
+        self.last_internal()
+    }
+}
+
+/// Iterator retrieving objects or objects with a given prefix
+pub struct GetObjectIter<'a, P, D>
+where
+    P: 'a + ProvideAwsCredentials,
+    D: 'a + DispatchSignedRequest,
+{
+    inner: ObjectIter<'a, P, D>,
+    request: GetObjectRequest,
+}
+
+impl<'a, P, D> GetObjectIter<'a, P, D>
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
+    pub(crate) fn new(client: &'a S3Client<P, D>, bucket: &str, prefix: Option<&str>) -> Self {
+        let request = GetObjectRequest {
+            bucket: bucket.to_owned(),
+            ..Default::default()
+        };
+
+        GetObjectIter {
+            inner: ObjectIter::new(client, bucket, prefix),
+            request,
         }
-        Ok(objects.last())
+    }
+
+    fn retrieve(&mut self, object: Option<Object>) -> S4Result<Option<GetObjectOutput>> {
+        match object {
+            Some(object) => {
+                self.request.key = object
+                    .key
+                    .ok_or_else(|| S4Error::Other("response is missing key"))?;
+                match self.inner.client.get_object(&self.request) {
+                    Ok(o) => Ok(Some(o)),
+                    Err(e) => Err(e.into()),
+                }
+            }
+            None => Ok(None),
+        }
+    }
+}
+
+impl<'a, P, D> FallibleIterator for GetObjectIter<'a, P, D>
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
+    type Item = GetObjectOutput;
+    type Error = S4Error;
+
+    #[inline]
+    fn next(&mut self) -> S4Result<Option<Self::Item>> {
+        let next = self.inner.next()?;
+        self.retrieve(next)
+    }
+
+    #[inline]
+    fn nth(&mut self, n: usize) -> Result<Option<Self::Item>, Self::Error> {
+        let nth = self.inner.nth(n)?;
+        self.retrieve(nth)
+    }
+
+    #[inline]
+    fn count(self) -> Result<usize, Self::Error> {
+        self.inner.count().map_err(|e| e.into())
+    }
+
+    #[inline]
+    fn last(mut self) -> Result<Option<Self::Item>, Self::Error> {
+        let last = self.inner.last_internal()?;
+        self.retrieve(last)
     }
 }

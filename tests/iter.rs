@@ -5,11 +5,14 @@ extern crate s4;
 mod common;
 use common::*;
 
+use s4::error::S4Result;
 use fallible_iterator::FallibleIterator;
+use rusoto_s3::GetObjectOutput;
 use s4::S4;
+use std::io::Read;
 
 #[test]
-fn object_iteration() {
+fn iter_objects() {
     let (client, bucket) = create_test_bucket();
 
     for i in (0..2003).map(|i| format!("{:04}", i)) {
@@ -25,7 +28,7 @@ fn object_iteration() {
 }
 
 #[test]
-fn object_iteration_with_prefix() {
+fn iter_objects_with_prefix() {
     let (client, bucket) = create_test_bucket();
 
     for i in (0..1005).map(|i| format!("a/{:04}", i)) {
@@ -42,7 +45,7 @@ fn object_iteration_with_prefix() {
 }
 
 #[test]
-fn nth() {
+fn iter_objects_nth() {
     let (client, bucket) = create_test_bucket();
 
     for i in (1..2081).map(|i| format!("{:04}", i)) {
@@ -77,7 +80,7 @@ fn nth() {
 }
 
 #[test]
-fn count() {
+fn iter_objects_count() {
     let (client, bucket) = create_test_bucket();
 
     assert_eq!(client.iter_objects(&bucket).count().unwrap(), 0);
@@ -105,19 +108,132 @@ fn count() {
     assert_eq!(iter.count().unwrap(), 0);
 }
 
- #[test]
-fn last() {
-     let (client, bucket) = create_test_bucket();
+#[test]
+fn iter_objects_last() {
+    let (client, bucket) = create_test_bucket();
 
-     assert!(client.iter_objects(&bucket).last().unwrap().is_none());
+    assert!(client.iter_objects(&bucket).last().unwrap().is_none());
 
-     for i in (1..1000).map(|i| format!("{:04}", i)) {
-         put_object(&client, &bucket, &i, vec![]);
-     }
+    for i in (1..1000).map(|i| format!("{:04}", i)) {
+        put_object(&client, &bucket, &i, vec![]);
+    }
 
-     assert_eq!(client.iter_objects(&bucket).last().unwrap().unwrap().key.unwrap(), "0999");
-     put_object(&client, &bucket, "1000", vec![]);
-     assert_eq!(client.iter_objects(&bucket).last().unwrap().unwrap().key.unwrap(), "1000");
-     put_object(&client, &bucket, "1001", vec![]);
-     assert_eq!(client.iter_objects(&bucket).last().unwrap().unwrap().key.unwrap(), "1001");
- }
+    assert_eq!(
+        client
+            .iter_objects(&bucket)
+            .last()
+            .unwrap()
+            .unwrap()
+            .key
+            .unwrap(),
+        "0999"
+    );
+    put_object(&client, &bucket, "1000", vec![]);
+    assert_eq!(
+        client
+            .iter_objects(&bucket)
+            .last()
+            .unwrap()
+            .unwrap()
+            .key
+            .unwrap(),
+        "1000"
+    );
+    put_object(&client, &bucket, "1001", vec![]);
+    assert_eq!(
+        client
+            .iter_objects(&bucket)
+            .last()
+            .unwrap()
+            .unwrap()
+            .key
+            .unwrap(),
+        "1001"
+    );
+}
+
+#[test]
+fn iter_get_objects() {
+    let (client, bucket) = create_test_bucket();
+
+    for i in (1..1004).map(|i| format!("{:04}", i)) {
+        put_object(&client, &bucket, &i, i.clone().into_bytes());
+    }
+
+    let mut iter = client.iter_get_objects(&bucket);
+    for i in (1..1004).map(|i| format!("{:04}", i)) {
+        let obj = iter.next().unwrap().unwrap();
+        let body: Vec<_> = obj.body.unwrap().bytes().map(|b| b.unwrap()).collect();
+        assert_eq!(body, i.as_bytes());
+    }
+    assert!(iter.next().unwrap().is_none());
+}
+
+#[test]
+fn iter_get_objects_nth() {
+    let (client, bucket) = create_test_bucket();
+
+    for i in (1..1003).map(|i| format!("{:04}", i)) {
+        put_object(&client, &bucket, &i, i.clone().into_bytes());
+    }
+
+    let mut iter = client.iter_get_objects(&bucket);
+    assert_body(iter.nth(0), b"0001");
+    assert_body(iter.nth(997), b"0999");
+    assert_body(iter.nth(0), b"1000");
+    assert_body(iter.nth(0), b"1001");
+    assert_body(iter.nth(0), b"1002");
+    assert!(iter.nth(0).unwrap().is_none());
+}
+
+#[test]
+fn iter_get_objects_with_prefix_count() {
+    let (client, bucket) = create_test_bucket();
+
+    put_object(&client, &bucket, "a/0020", vec![]);
+    put_object(&client, &bucket, "c/0030", vec![]);
+    assert_eq!(
+        client
+            .iter_get_objects_with_prefix(&bucket, "b/")
+            .count()
+            .unwrap(),
+        0
+    );
+
+    for i in (0..533).map(|i| format!("b/{:04}", i)) {
+        put_object(&client, &bucket, &i, i.clone().into_bytes());
+    }
+
+    assert_eq!(
+        client
+            .iter_get_objects_with_prefix(&bucket, "b/")
+            .count()
+            .unwrap(),
+        533
+    );
+}
+
+#[test]
+fn iter_get_objects_last() {
+    let (client, bucket) = create_test_bucket();
+
+    assert!(client.iter_get_objects(&bucket).last().unwrap().is_none());
+
+    for i in (1..1002).map(|i| format!("{:04}", i)) {
+        put_object(&client, &bucket, &i, i.clone().into_bytes());
+    }
+
+    assert_body(client.iter_get_objects(&bucket).last(), b"1001");
+}
+
+fn assert_body(output: S4Result<Option<GetObjectOutput>>, expected: &[u8]) {
+    let mut body = Vec::new();
+    output
+        .unwrap()
+        .unwrap()
+        .body
+        .unwrap()
+        .read_to_end(&mut body)
+        .unwrap();
+    assert_eq!(body, expected);
+}

@@ -7,7 +7,7 @@ extern crate rusoto_credential;
 extern crate rusoto_s3;
 
 pub mod iter;
-use iter::ObjectIter;
+use iter::{GetObjectIter, ObjectIter};
 pub mod error;
 use error::{S4Error, S4Result};
 
@@ -81,6 +81,16 @@ where
     ///
     /// Objects are lexicographically sorted by their key.
     fn iter_objects_with_prefix(&self, bucket: &str, prefix: &str) -> ObjectIter<P, D>;
+
+    /// Iterator over all objects; fetching objects as needed
+    ///
+    /// Objects are lexicographically sorted by their key.
+    fn iter_get_objects(&self, bucket: &str) -> GetObjectIter<P, D>;
+
+    /// Iterator over all objects; fetching objects as needed
+    ///
+    /// Objects are lexicographically sorted by their key.
+    fn iter_get_objects_with_prefix(&self, bucket: &str, prefix: &str) -> GetObjectIter<P, D>;
 }
 
 impl<P, D> S4<P, D> for S3Client<P, D>
@@ -128,5 +138,15 @@ where
     #[inline]
     fn iter_objects_with_prefix(&self, bucket: &str, prefix: &str) -> ObjectIter<P, D> {
         ObjectIter::new(self, bucket, Some(prefix))
+    }
+
+    #[inline]
+    fn iter_get_objects(&self, bucket: &str) -> GetObjectIter<P, D> {
+        GetObjectIter::new(self, bucket, None)
+    }
+
+    #[inline]
+    fn iter_get_objects_with_prefix(&self, bucket: &str, prefix: &str) -> GetObjectIter<P, D> {
+        GetObjectIter::new(self, bucket, Some(prefix))
     }
 }
