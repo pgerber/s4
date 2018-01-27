@@ -104,3 +104,20 @@ fn count() {
     assert!(iter.nth(2122).unwrap().is_none());
     assert_eq!(iter.count().unwrap(), 0);
 }
+
+ #[test]
+fn last() {
+     let (client, bucket) = create_test_bucket();
+
+     assert!(client.iter_objects(&bucket).last().unwrap().is_none());
+
+     for i in (1..1000).map(|i| format!("{:04}", i)) {
+         put_object(&client, &bucket, &i, vec![]);
+     }
+
+     assert_eq!(client.iter_objects(&bucket).last().unwrap().unwrap().key.unwrap(), "0999");
+     put_object(&client, &bucket, "1000", vec![]);
+     assert_eq!(client.iter_objects(&bucket).last().unwrap().unwrap().key.unwrap(), "1000");
+     put_object(&client, &bucket, "1001", vec![]);
+     assert_eq!(client.iter_objects(&bucket).last().unwrap().unwrap().key.unwrap(), "1001");
+ }

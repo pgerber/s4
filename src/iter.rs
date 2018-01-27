@@ -2,6 +2,7 @@ use fallible_iterator::FallibleIterator;
 use rusoto_core::DispatchSignedRequest;
 use rusoto_credential::ProvideAwsCredentials;
 use rusoto_s3::{ListObjectsV2Error, ListObjectsV2Request, Object, S3, S3Client};
+use std::mem;
 use std::vec::IntoIter;
 
 /// Iterator over all objects or objects with a given prefix
@@ -87,5 +88,16 @@ where
             count += self.objects.len();
         }
         Ok(count)
+    }
+
+    fn last(mut self) -> Result<Option<Self::Item>, Self::Error> {
+        let mut objects = mem::replace(&mut self.objects, Vec::new().into_iter());
+        while !self.exhausted {
+            self.next_objects()?;
+            if self.objects.len() > 0 {
+                objects = mem::replace(&mut self.objects, Vec::new().into_iter());
+            }
+        }
+        Ok(objects.last())
     }
 }
