@@ -109,7 +109,7 @@ where
     }
 }
 
-/// Iterator retrieving objects or objects with a given prefix
+/// Iterator retrieving all objects or objects with a given prefix
 pub struct GetObjectIter<'a, P, D>
 where
     P: 'a + ProvideAwsCredentials,

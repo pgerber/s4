@@ -87,7 +87,7 @@ where
     /// Objects are lexicographically sorted by their key.
     fn iter_get_objects(&self, bucket: &str) -> GetObjectIter<P, D>;
 
-    /// Iterator over all objects; fetching objects as needed
+    /// Iterator over objects with given `prefix`; fetching objects as needed
     ///
     /// Objects are lexicographically sorted by their key.
     fn iter_get_objects_with_prefix(&self, bucket: &str, prefix: &str) -> GetObjectIter<P, D>;
