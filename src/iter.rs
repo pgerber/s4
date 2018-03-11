@@ -10,8 +10,8 @@ use std::vec::IntoIter;
 /// Iterator over all objects or objects with a given prefix
 pub struct ObjectIter<'a, P, D>
 where
-    P: 'a + ProvideAwsCredentials,
-    D: 'a + DispatchSignedRequest,
+    P: 'static + ProvideAwsCredentials,
+    D: 'static + DispatchSignedRequest,
 {
     client: &'a S3Client<P, D>,
     request: ListObjectsV2Request,
@@ -41,7 +41,7 @@ where
     }
 
     fn next_objects(&mut self) -> Result<(), ListObjectsV2Error> {
-        let resp = self.client.list_objects_v2(&self.request)?;
+        let resp = self.client.list_objects_v2(&self.request).sync()?;
         self.objects = resp.contents.unwrap_or_else(Vec::new).into_iter();
         match resp.next_continuation_token {
             next @ Some(_) => self.request.continuation_token = next,
@@ -112,8 +112,8 @@ where
 /// Iterator retrieving all objects or objects with a given prefix
 pub struct GetObjectIter<'a, P, D>
 where
-    P: 'a + ProvideAwsCredentials,
-    D: 'a + DispatchSignedRequest,
+    P: 'static + ProvideAwsCredentials,
+    D: 'static + DispatchSignedRequest,
 {
     inner: ObjectIter<'a, P, D>,
     request: GetObjectRequest,
@@ -142,7 +142,7 @@ where
                 self.request.key = object
                     .key
                     .ok_or_else(|| S4Error::Other("response is missing key"))?;
-                match self.inner.client.get_object(&self.request) {
+                match self.inner.client.get_object(&self.request).sync() {
                     Ok(o) => Ok(Some(o)),
                     Err(e) => Err(e.into()),
                 }

@@ -3,6 +3,10 @@ rust:
   - stable
   - beta
   - nightly
+env:
+  global:
+    - RUST_BACKTRACE=1
+    - QUICKCHECK_GENERATOR_SIZE=1572864
 matrix:
   allow_failures:
     - rust: nightly

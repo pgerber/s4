@@ -1,4 +1,5 @@
 extern crate fallible_iterator;
+extern crate futures;
 extern crate rusoto_s3;
 extern crate s4;
 
@@ -7,9 +8,9 @@ use common::*;
 
 use s4::error::S4Result;
 use fallible_iterator::FallibleIterator;
+use futures::{Future, Stream};
 use rusoto_s3::GetObjectOutput;
 use s4::S4;
-use std::io::Read;
 
 #[test]
 fn iter_objects() {
@@ -163,7 +164,7 @@ fn iter_get_objects() {
     let mut iter = client.iter_get_objects(&bucket);
     for i in (1..1004).map(|i| format!("{:04}", i)) {
         let obj = iter.next().unwrap().unwrap();
-        let body: Vec<_> = obj.body.unwrap().bytes().map(|b| b.unwrap()).collect();
+        let body: Vec<u8> = obj.body.unwrap().concat2().wait().unwrap();
         assert_eq!(body, i.as_bytes());
     }
     assert!(iter.next().unwrap().is_none());
@@ -227,13 +228,13 @@ fn iter_get_objects_last() {
 }
 
 fn assert_body(output: S4Result<Option<GetObjectOutput>>, expected: &[u8]) {
-    let mut body = Vec::new();
-    output
+    let body: Vec<u8> = output
         .unwrap()
         .unwrap()
         .body
         .unwrap()
-        .read_to_end(&mut body)
+        .concat2()
+        .wait()
         .unwrap();
     assert_eq!(body, expected);
 }

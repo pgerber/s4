@@ -1,9 +1,13 @@
+#[macro_use]
+extern crate quickcheck;
+extern crate rand;
 extern crate rusoto_s3;
 extern crate s4;
 extern crate tempdir;
 
 mod common;
 
+use rand::Rng;
 use rusoto_s3::{GetObjectError, GetObjectRequest};
 use s4::S4;
 use s4::error::S4Error;
@@ -58,46 +62,72 @@ fn target_file_not_created_when_object_does_not_exist() {
     );
 }
 
-#[test]
-fn write_to_file() {
-    let (client, bucket) = common::create_test_bucket();
-    let dir = TempDir::new("").unwrap();
-    let file = dir.path().join("data");
-    let key = "3bytes";
-    let data = &[0x00, 0x01, 0x02];
+quickcheck! {
+    fn write_to_file(data: Vec<u8>) -> () {
+        println!("{}", data.len());
+        let (client, bucket) = common::create_test_bucket();
+        let dir = TempDir::new("").unwrap();
+        let file = dir.path().join("data");
+        let key = "some_key";
 
-    common::put_object(&client, &bucket, key, data.to_vec());
+        common::put_object(&client, &bucket, key, data.clone());
 
-    let resp = client
-        .object_to_file(
-            &GetObjectRequest {
-                bucket: bucket.clone(),
-                key: key.to_owned(),
-                ..Default::default()
-            },
-            &file,
-        )
-        .unwrap();
+        let resp = client
+            .object_to_file(
+                &GetObjectRequest {
+                    bucket: bucket.clone(),
+                    key: key.to_owned(),
+                    ..Default::default()
+                },
+                &file,
+            )
+            .unwrap();
 
-    assert_eq!(resp.content_length, Some(3));
-    assert_eq!(
-        &File::open(&file)
-            .unwrap()
-            .bytes()
-            .map(|b| b.unwrap())
-            .collect::<Vec<_>>(),
-        data
-    );
+        assert_eq!(resp.content_length, Some(data.len() as i64));
+        assert_eq!(
+            File::open(&file)
+                .unwrap()
+                .bytes()
+                .map(|b| b.unwrap())
+                .collect::<Vec<_>>(),
+            data
+        );
+    }
+}
+
+quickcheck! {
+    fn write_to_write(data: Vec<u8>) -> () {
+        let (client, bucket) = common::create_test_bucket();
+        let key = "abc/def/ghi";
+        let mut target = Vec::new();
+
+        common::put_object(&client, &bucket, key, data.clone());
+
+        let resp = client
+            .object_to_write(
+                &GetObjectRequest {
+                    bucket: bucket.clone(),
+                    key: key.to_owned(),
+                    ..Default::default()
+                },
+                &mut target,
+            )
+            .unwrap();
+
+        assert_eq!(resp.content_length, Some(data.len() as i64));
+        assert_eq!(data, target);
+    }
 }
 
 #[test]
-fn write_to_write() {
+fn write_to_write_large_object() {
     let (client, bucket) = common::create_test_bucket();
     let key = "abc/def/ghi";
-    let data = &[0x10, 0x20, 0x30, 0x40];
+    let mut data = vec![0; 104_857_601];
+    rand::weak_rng().fill_bytes(data.as_mut());
     let mut target = Vec::new();
 
-    common::put_object(&client, &bucket, key, data.to_vec());
+    common::put_object(&client, &bucket, key, data.clone());
 
     let resp = client
         .object_to_write(
@@ -110,6 +140,6 @@ fn write_to_write() {
         )
         .unwrap();
 
-    assert_eq!(resp.content_length, Some(4));
-    assert_eq!(data, &target.as_ref());
+    assert_eq!(resp.content_length, Some(data.len() as i64));
+    assert_eq!(&data[..], &target[..]);
 }

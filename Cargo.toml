@@ -15,11 +15,13 @@ travis-ci = { repository = "pgerber/s4" }
 [dependencies]
 derive-error = "0.0"
 fallible-iterator = "0.1"
-hyper = "0.10"
-rusoto_core = "0.31"
-rusoto_credential = "0.10"
-rusoto_s3 = "0.31"
+futures = "0.1"
+rusoto_core = "0.32"
+rusoto_credential = "0.11"
+rusoto_s3 = "0.32"
+tokio-io = "0.1"
 
 [dev-dependencies]
 tempdir = "0.3"
 rand = "0.4"
+quickcheck = "0.6"
