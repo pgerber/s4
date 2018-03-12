@@ -83,17 +83,6 @@ where
         }
     }
 
-    fn nth(&mut self, mut n: usize) -> Result<Option<Self::Item>, Self::Error> {
-        while self.objects.len() <= n {
-            if self.exhausted {
-                return Ok(None);
-            }
-            n -= self.objects.len();
-            self.next_objects()?;
-        }
-        Ok(self.objects.nth(n))
-    }
-
     fn count(mut self) -> Result<usize, Self::Error> {
         let mut count = self.objects.len();
         while !self.exhausted {
@@ -106,6 +95,17 @@ where
     #[inline]
     fn last(mut self) -> Result<Option<Self::Item>, Self::Error> {
         self.last_internal()
+    }
+
+    fn nth(&mut self, mut n: usize) -> Result<Option<Self::Item>, Self::Error> {
+        while self.objects.len() <= n {
+            if self.exhausted {
+                return Ok(None);
+            }
+            n -= self.objects.len();
+            self.next_objects()?;
+        }
+        Ok(self.objects.nth(n))
     }
 }
 
@@ -167,12 +167,6 @@ where
     }
 
     #[inline]
-    fn nth(&mut self, n: usize) -> Result<Option<Self::Item>, Self::Error> {
-        let nth = self.inner.nth(n)?;
-        self.retrieve(nth)
-    }
-
-    #[inline]
     fn count(self) -> Result<usize, Self::Error> {
         self.inner.count().map_err(|e| e.into())
     }
@@ -181,5 +175,11 @@ where
     fn last(mut self) -> Result<Option<Self::Item>, Self::Error> {
         let last = self.inner.last_internal()?;
         self.retrieve(last)
+    }
+
+    #[inline]
+    fn nth(&mut self, n: usize) -> Result<Option<Self::Item>, Self::Error> {
+        let nth = self.inner.nth(n)?;
+        self.retrieve(nth)
     }
 }
