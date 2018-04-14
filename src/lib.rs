@@ -56,7 +56,7 @@ where
     ///
     /// The current implementation is incomplete. For now, the following limitations apply:
     ///
-    /// * The full content content of `source` is copied into memory.
+    /// * The full content of `source` is copied into memory.
     /// * Content is uploaded at once (no multi-part upload support).
     fn upload_from_file<F>(&self, source: F, target: PutObjectRequest) -> S4Result<PutObjectOutput>
     where
@@ -73,7 +73,7 @@ where
     ///
     /// The current implementation is incomplete. For now, the following limitations apply:
     ///
-    /// * The full content content of `source` is copied into memory.
+    /// * The full content of `source` is copied into memory.
     /// * Content is uploaded at once (no multi-part upload support).
     fn upload<R>(&self, source: &mut R, target: PutObjectRequest) -> S4Result<PutObjectOutput>
     where
