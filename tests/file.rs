@@ -193,3 +193,17 @@ fn upload() {
     assert_eq!(common::get_body(&client, &bucket, "from_file"), content);
     assert_eq!(common::get_body(&client, &bucket, "from_read"), content);
 }
+
+
+quickcheck! {
+    fn upload_arbitrary(body: Vec<u8>) -> bool {
+        let (client, bucket) = common::create_test_bucket();
+        client.upload(&mut &body[..], PutObjectRequest {
+            bucket: bucket.clone(),
+            key: "some_key".to_owned(),
+            ..Default::default()
+        }).unwrap();
+
+        common::get_body(&client, &bucket, "some_key") == body
+    }
+}
