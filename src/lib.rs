@@ -19,7 +19,7 @@ use rusoto_credential::{ProvideAwsCredentials, StaticProvider};
 use rusoto_s3::{GetObjectOutput, GetObjectRequest, PutObjectOutput, PutObjectRequest, S3,
                 S3Client, StreamingBody};
 use std::convert::AsRef;
-use std::fs::{self, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
 
@@ -131,7 +131,9 @@ where
     where
         F: AsRef<Path>,
     {
-        let content = fs::read(source)?;
+        let mut file = File::open(source)?;
+        let mut content = Vec::new();
+        file.read_to_end(&mut content)?;
         target.body = Some(content);
         self.put_object(&target).sync().map_err(|e| e.into())
     }
