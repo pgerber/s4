@@ -6,10 +6,10 @@ extern crate s4;
 mod common;
 use common::*;
 
-use s4::error::S4Result;
 use fallible_iterator::FallibleIterator;
 use futures::{Future, Stream};
 use rusoto_s3::GetObjectOutput;
+use s4::error::S4Result;
 use s4::S4;
 
 #[test]

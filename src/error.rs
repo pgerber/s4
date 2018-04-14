@@ -1,5 +1,5 @@
 use rusoto_core::HttpDispatchError;
-use rusoto_s3::{GetObjectError, ListObjectsV2Error};
+use rusoto_s3::{GetObjectError, ListObjectsV2Error, PutObjectError};
 use std::io::Error as IoError;
 
 pub type S4Result<T> = Result<T, S4Error>;
@@ -22,4 +22,7 @@ pub enum S4Error {
 
     /// Rusoto ListObjectV2Error
     ListObjectV2Error(ListObjectsV2Error),
+
+    /// Rusoto PutObjectError
+    PutObjectError(PutObjectError),
 }

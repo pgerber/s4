@@ -13,13 +13,14 @@ pub mod error;
 use error::{S4Error, S4Result};
 
 use futures::stream::Stream;
-use rusoto_core::{DispatchSignedRequest, Region};
 use rusoto_core::reactor::RequestDispatcher;
+use rusoto_core::{DispatchSignedRequest, Region};
 use rusoto_credential::{ProvideAwsCredentials, StaticProvider};
-use rusoto_s3::{GetObjectOutput, GetObjectRequest, S3, S3Client, StreamingBody};
+use rusoto_s3::{GetObjectOutput, GetObjectRequest, PutObjectOutput, PutObjectRequest, S3,
+                S3Client, StreamingBody};
 use std::convert::AsRef;
-use std::fs::OpenOptions;
-use std::io::Write;
+use std::fs::{self, OpenOptions};
+use std::io::{Read, Write};
 use std::path::Path;
 
 /// Create client using given static access/secret keys
@@ -41,18 +42,42 @@ where
     D: DispatchSignedRequest,
 {
     /// Get object and write it to file `target`
-    fn object_to_file<F>(&self, source: &GetObjectRequest, target: F) -> S4Result<GetObjectOutput>
+    fn download_to_file<F>(
+        &self,
+        source: &GetObjectRequest,
+        target: F,
+    ) -> S4Result<GetObjectOutput>
+    where
+        F: AsRef<Path>;
+
+    /// Upload content of file to S3
+    ///
+    /// # Caveats
+    ///
+    /// The current implementation is incomplete. For now, the following limitations apply:
+    ///
+    /// * The full content content of `source` is copied into memory.
+    /// * Content is uploaded at once (no multi-part upload support).
+    fn upload_from_file<F>(&self, source: F, target: PutObjectRequest) -> S4Result<PutObjectOutput>
     where
         F: AsRef<Path>;
 
     /// Get object and write it to `target`
-    fn object_to_write<W>(
-        &self,
-        source: &GetObjectRequest,
-        target: &mut W,
-    ) -> S4Result<GetObjectOutput>
+    fn download<W>(&self, source: &GetObjectRequest, target: &mut W) -> S4Result<GetObjectOutput>
     where
         W: Write;
+
+    /// Read `source` and upload it to S3
+    ///
+    /// # Caveats
+    ///
+    /// The current implementation is incomplete. For now, the following limitations apply:
+    ///
+    /// * The full content content of `source` is copied into memory.
+    /// * Content is uploaded at once (no multi-part upload support).
+    fn upload<R>(&self, source: &mut R, target: PutObjectRequest) -> S4Result<PutObjectOutput>
+    where
+        R: Read;
 
     /// Iterator over all objects
     ///
@@ -80,7 +105,7 @@ where
     P: 'static + ProvideAwsCredentials,
     D: 'static + DispatchSignedRequest,
 {
-    fn object_to_file<F>(
+    fn download_to_file<F>(
         &self,
         source: &GetObjectRequest,
         target: F,
@@ -98,11 +123,24 @@ where
         Ok(resp)
     }
 
-    fn object_to_write<W>(
+    fn upload_from_file<F>(
+        &self,
+        source: F,
+        mut target: PutObjectRequest,
+    ) -> S4Result<PutObjectOutput>
+    where
+        F: AsRef<Path>,
+    {
+        let content = fs::read(source)?;
+        target.body = Some(content);
+        self.put_object(&target).sync().map_err(|e| e.into())
+    }
+
+    fn download<W>(
         &self,
         source: &GetObjectRequest,
         mut target: &mut W,
-    ) -> Result<GetObjectOutput, S4Error>
+    ) -> S4Result<GetObjectOutput>
     where
         W: Write,
     {
@@ -110,6 +148,16 @@ where
         let mut body = resp.body.take().expect("no body");
         copy(&mut body, &mut target)?;
         Ok(resp)
+    }
+
+    fn upload<R>(&self, source: &mut R, mut target: PutObjectRequest) -> S4Result<PutObjectOutput>
+    where
+        R: Read,
+    {
+        let mut content = Vec::new();
+        source.read_to_end(&mut content)?;
+        target.body = Some(content);
+        self.put_object(&target).sync().map_err(|e| e.into())
     }
 
     #[inline]

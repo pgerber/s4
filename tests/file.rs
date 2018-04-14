@@ -8,11 +8,11 @@ extern crate tempdir;
 mod common;
 
 use rand::Rng;
-use rusoto_s3::{GetObjectError, GetObjectRequest};
-use s4::S4;
+use rusoto_s3::{GetObjectError, GetObjectRequest, PutObjectRequest};
 use s4::error::S4Error;
-use std::fs::File;
-use std::io::{ErrorKind, Read};
+use s4::S4;
+use std::fs::{self, File};
+use std::io::{self, ErrorKind, Read};
 use tempdir::TempDir;
 
 #[test]
@@ -22,7 +22,7 @@ fn target_file_already_exists() {
 
     common::put_object(&client, &bucket, key, vec![]);
 
-    let result = client.object_to_file(
+    let result = client.download_to_file(
         &GetObjectRequest {
             bucket: bucket.clone(),
             key: key.to_owned(),
@@ -43,7 +43,7 @@ fn target_file_not_created_when_object_does_not_exist() {
     let dir = TempDir::new("").unwrap();
     let file = dir.path().join("no_such_file");
 
-    let result = client.object_to_file(
+    let result = client.download_to_file(
         &GetObjectRequest {
             bucket: bucket.clone(),
             key: "no_such_key".to_owned(),
@@ -63,7 +63,7 @@ fn target_file_not_created_when_object_does_not_exist() {
 }
 
 quickcheck! {
-    fn write_to_file(data: Vec<u8>) -> () {
+    fn download_to_file(data: Vec<u8>) -> () {
         println!("{}", data.len());
         let (client, bucket) = common::create_test_bucket();
         let dir = TempDir::new("").unwrap();
@@ -73,7 +73,7 @@ quickcheck! {
         common::put_object(&client, &bucket, key, data.clone());
 
         let resp = client
-            .object_to_file(
+            .download_to_file(
                 &GetObjectRequest {
                     bucket: bucket.clone(),
                     key: key.to_owned(),
@@ -96,7 +96,7 @@ quickcheck! {
 }
 
 quickcheck! {
-    fn write_to_write(data: Vec<u8>) -> () {
+    fn download(data: Vec<u8>) -> () {
         let (client, bucket) = common::create_test_bucket();
         let key = "abc/def/ghi";
         let mut target = Vec::new();
@@ -104,7 +104,7 @@ quickcheck! {
         common::put_object(&client, &bucket, key, data.clone());
 
         let resp = client
-            .object_to_write(
+            .download(
                 &GetObjectRequest {
                     bucket: bucket.clone(),
                     key: key.to_owned(),
@@ -120,7 +120,7 @@ quickcheck! {
 }
 
 #[test]
-fn write_to_write_large_object() {
+fn download_large_object() {
     let (client, bucket) = common::create_test_bucket();
     let key = "abc/def/ghi";
     let mut data = vec![0; 104_857_601];
@@ -130,7 +130,7 @@ fn write_to_write_large_object() {
     common::put_object(&client, &bucket, key, data.clone());
 
     let resp = client
-        .object_to_write(
+        .download(
             &GetObjectRequest {
                 bucket: bucket.clone(),
                 key: key.to_owned(),
@@ -142,4 +142,52 @@ fn write_to_write_large_object() {
 
     assert_eq!(resp.content_length, Some(data.len() as i64));
     assert_eq!(&data[..], &target[..]);
+}
+
+#[test]
+fn no_object_created_when_file_cannot_be_opened_for_upload() {
+    let (client, _) = common::create_test_bucket();
+    let result = client.upload_from_file(
+        "/no_such_file_or_directory_0V185rt1LhV2WwZdveEM",
+        PutObjectRequest {
+            bucket: "unused_bucket_name".to_string(),
+            key: "key".to_string(),
+            ..Default::default()
+        },
+    );
+    match result {
+        Err(S4Error::IoError(ref e)) if e.kind() == io::ErrorKind::NotFound => (),
+        r => panic!("unexpected result: {:?}", r),
+    }
+}
+
+#[test]
+fn upload() {
+    let (client, bucket) = common::create_test_bucket();
+    let content = fs::read(file!()).unwrap();
+
+    client
+        .upload_from_file(
+            file!(),
+            PutObjectRequest {
+                bucket: bucket.clone(),
+                key: "from_file".to_string(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    client
+        .upload(
+            &mut &content[..],
+            PutObjectRequest {
+                bucket: bucket.clone(),
+                key: "from_read".to_string(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+    assert_eq!(common::get_body(&client, &bucket, "from_file"), content);
+    assert_eq!(common::get_body(&client, &bucket, "from_read"), content);
 }

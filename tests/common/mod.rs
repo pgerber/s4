@@ -1,16 +1,18 @@
 #![allow(dead_code)]
 
-
+extern crate futures;
 extern crate rand;
 extern crate rusoto_core;
 extern crate rusoto_credential;
 extern crate rusoto_s3;
 
+use self::futures::stream::Stream;
+use self::futures::Future;
 use self::rand::Rng;
 use self::rusoto_core::request::DispatchSignedRequest;
 use self::rusoto_core::Region;
 use self::rusoto_credential::{ProvideAwsCredentials, StaticProvider};
-use self::rusoto_s3::{CreateBucketRequest, PutObjectRequest, S3, S3Client};
+use self::rusoto_s3::{CreateBucketRequest, GetObjectRequest, PutObjectRequest, S3, S3Client};
 use s4::new_s3client_with_credentials;
 
 pub fn create_test_bucket() -> (S3Client<StaticProvider>, String) {
@@ -53,4 +55,20 @@ where
         })
         .sync()
         .unwrap();
+}
+
+pub fn get_body<P, D>(client: &S3Client<P, D>, bucket: &str, key: &str) -> Vec<u8>
+where
+    P: 'static + ProvideAwsCredentials,
+    D: 'static + DispatchSignedRequest,
+{
+    let object = client
+        .get_object(&GetObjectRequest {
+            bucket: bucket.to_owned(),
+            key: key.to_owned(),
+            ..Default::default()
+        })
+        .sync()
+        .unwrap();
+    object.body.unwrap().concat2().wait().unwrap()
 }
