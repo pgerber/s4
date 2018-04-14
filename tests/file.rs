@@ -11,7 +11,7 @@ use rand::Rng;
 use rusoto_s3::{GetObjectError, GetObjectRequest, PutObjectRequest};
 use s4::error::S4Error;
 use s4::S4;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, ErrorKind, Read};
 use tempdir::TempDir;
 
@@ -164,7 +164,9 @@ fn no_object_created_when_file_cannot_be_opened_for_upload() {
 #[test]
 fn upload() {
     let (client, bucket) = common::create_test_bucket();
-    let content = fs::read(file!()).unwrap();
+    let mut file = File::open(file!()).unwrap();
+    let mut content = Vec::new();
+    file.read_to_end(&mut content).unwrap();
 
     client
         .upload_from_file(
