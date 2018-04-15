@@ -11,13 +11,14 @@ pub mod iter;
 use iter::{GetObjectIter, ObjectIter};
 pub mod error;
 use error::{S4Error, S4Result};
+pub mod upload;
 
 use futures::stream::Stream;
 use rusoto_core::reactor::RequestDispatcher;
 use rusoto_core::{DispatchSignedRequest, Region};
 use rusoto_credential::{ProvideAwsCredentials, StaticProvider};
-use rusoto_s3::{GetObjectOutput, GetObjectRequest, PutObjectOutput, PutObjectRequest, S3,
-                S3Client, StreamingBody};
+use rusoto_s3::{CompleteMultipartUploadOutput, GetObjectOutput, GetObjectRequest, PutObjectOutput,
+                PutObjectRequest, S3, S3Client, StreamingBody};
 use std::convert::AsRef;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
@@ -54,11 +55,26 @@ where
     ///
     /// # Caveats
     ///
-    /// The current implementation is incomplete. For now, the following limitations apply:
+    /// The current implementation is incomplete. For now, the following limitation applies:
     ///
     /// * The full content of `source` is copied into memory.
-    /// * Content is uploaded at once (no multi-part upload support).
     fn upload_from_file<F>(&self, source: F, target: PutObjectRequest) -> S4Result<PutObjectOutput>
+    where
+        F: AsRef<Path>;
+
+    /// Upload content of file to S3 using multi-part upload
+    ///
+    /// # Caveats
+    ///
+    /// The current implementation is incomplete. For now, the following limitation applies:
+    ///
+    /// * The full content of a part is copied into memory.
+    fn upload_from_file_multipart<F>(
+        &self,
+        source: F,
+        target: &PutObjectRequest,
+        part_size: u64,
+    ) -> S4Result<CompleteMultipartUploadOutput>
     where
         F: AsRef<Path>;
 
@@ -71,11 +87,26 @@ where
     ///
     /// # Caveats
     ///
-    /// The current implementation is incomplete. For now, the following limitations apply:
+    /// The current implementation is incomplete. For now, the following limitation applies:
     ///
     /// * The full content of `source` is copied into memory.
-    /// * Content is uploaded at once (no multi-part upload support).
     fn upload<R>(&self, source: &mut R, target: PutObjectRequest) -> S4Result<PutObjectOutput>
+    where
+        R: Read;
+
+    /// Read `source` and upload it to S3 using multi-part upload
+    ///
+    /// # Caveats
+    ///
+    /// The current implementation is incomplete. For now, the following limitation applies:
+    ///
+    /// * The full content of a part is copied into memory.
+    fn upload_multipart<R>(
+        &self,
+        source: &mut R,
+        target: &PutObjectRequest,
+        part_size: u64,
+    ) -> S4Result<CompleteMultipartUploadOutput>
     where
         R: Read;
 
@@ -123,19 +154,27 @@ where
         Ok(resp)
     }
 
-    fn upload_from_file<F>(
-        &self,
-        source: F,
-        mut target: PutObjectRequest,
-    ) -> S4Result<PutObjectOutput>
+    #[inline]
+    fn upload_from_file<F>(&self, source: F, target: PutObjectRequest) -> S4Result<PutObjectOutput>
     where
         F: AsRef<Path>,
     {
-        let mut file = File::open(source)?;
-        let mut content = Vec::new();
-        file.read_to_end(&mut content)?;
-        target.body = Some(content);
-        self.put_object(&target).sync().map_err(|e| e.into())
+        let mut source = File::open(source)?;
+        upload::upload(&self, &mut source, target)
+    }
+
+    #[inline]
+    fn upload_from_file_multipart<F>(
+        &self,
+        source: F,
+        target: &PutObjectRequest,
+        part_size: u64,
+    ) -> S4Result<CompleteMultipartUploadOutput>
+    where
+        F: AsRef<Path>,
+    {
+        let mut source = File::open(source)?;
+        upload::upload_multipart(&self, &mut source, target, part_size)
     }
 
     fn download<W>(
@@ -152,14 +191,25 @@ where
         Ok(resp)
     }
 
-    fn upload<R>(&self, source: &mut R, mut target: PutObjectRequest) -> S4Result<PutObjectOutput>
+    #[inline]
+    fn upload<R>(&self, source: &mut R, target: PutObjectRequest) -> S4Result<PutObjectOutput>
     where
         R: Read,
     {
-        let mut content = Vec::new();
-        source.read_to_end(&mut content)?;
-        target.body = Some(content);
-        self.put_object(&target).sync().map_err(|e| e.into())
+        upload::upload(&self, source, target)
+    }
+
+    #[inline]
+    fn upload_multipart<R>(
+        &self,
+        mut source: &mut R,
+        target: &PutObjectRequest,
+        part_size: u64,
+    ) -> S4Result<CompleteMultipartUploadOutput>
+    where
+        R: Read,
+    {
+        upload::upload_multipart(&self, &mut source, target, part_size)
     }
 
     #[inline]

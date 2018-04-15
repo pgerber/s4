@@ -14,6 +14,7 @@ use self::rusoto_core::Region;
 use self::rusoto_credential::{ProvideAwsCredentials, StaticProvider};
 use self::rusoto_s3::{CreateBucketRequest, GetObjectRequest, PutObjectRequest, S3, S3Client};
 use s4::new_s3client_with_credentials;
+use std::io::{self, Read};
 
 pub fn create_test_bucket() -> (S3Client<StaticProvider>, String) {
     let client = new_s3client_with_credentials(
@@ -71,4 +72,24 @@ where
         .sync()
         .unwrap();
     object.body.unwrap().concat2().wait().unwrap()
+}
+
+pub struct ReaderWithError {
+    pub abort_after: usize,
+}
+
+impl Read for ReaderWithError {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
+        if buf.len() > self.abort_after {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "explicit, unconditional error",
+            ));
+        }
+        for mut i in buf.iter_mut() {
+            *i = 0;
+        }
+        self.abort_after -= buf.len();
+        Ok(buf.len())
+    }
 }

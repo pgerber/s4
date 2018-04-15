@@ -1,5 +1,6 @@
 use rusoto_core::HttpDispatchError;
-use rusoto_s3::{GetObjectError, ListObjectsV2Error, PutObjectError};
+use rusoto_s3::{CompleteMultipartUploadError, CreateMultipartUploadError, GetObjectError,
+                ListObjectsV2Error, PutObjectError, UploadPartError};
 use std::io::Error as IoError;
 
 pub type S4Result<T> = Result<T, S4Error>;
@@ -14,6 +15,12 @@ pub enum S4Error {
     /// I/O Error
     IoError(IoError),
 
+    /// Rusoto CompleteMultipartUploadError
+    CompleteMultipartUploadError(CompleteMultipartUploadError),
+
+    /// Rusoto CreateMultipartUploadError
+    CreateMultipartUploadError(CreateMultipartUploadError),
+
     /// Rusoto GetObjectError
     GetObjectError(GetObjectError),
 
@@ -25,4 +32,7 @@ pub enum S4Error {
 
     /// Rusoto PutObjectError
     PutObjectError(PutObjectError),
+
+    /// Rusoto UploadPartError
+    UploadPartError(UploadPartError),
 }
