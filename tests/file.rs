@@ -210,6 +210,7 @@ quickcheck! {
 
 quickcheck! {
     fn upload_multipart() -> bool {
+        common::init_logger();
         let seed = rand::thread_rng().gen();
         println!("rng seed: {:?}", seed);
         let mut rng = XorShiftRng::from_seed(seed);
@@ -220,6 +221,7 @@ quickcheck! {
 
 #[test]
 fn upload_multipart_test_part_boundary() {
+    common::init_logger();
     for part_count in 1..5 {
         let seed = rand::thread_rng().gen();
         println!("rng seed: {:?}", seed);
@@ -239,6 +241,7 @@ fn upload_multipart_test_part_boundary() {
 }
 
 fn upload_multipart_helper(rng: &mut XorShiftRng, part_size: u64, obj_size: u64) -> bool {
+    common::init_logger();
     let (client, bucket) = common::create_test_bucket();
     let mut body = vec![0; obj_size as usize];
     rng.fill_bytes(&mut body[..]);
@@ -257,6 +260,7 @@ fn upload_multipart_helper(rng: &mut XorShiftRng, part_size: u64, obj_size: u64)
 
 quickcheck! {
     fn multipart_upload_is_aborted() -> bool {
+        common::init_logger();
         let (client, bucket) = common::create_test_bucket();
         let abort_after = rand::thread_rng().gen_range(0, 10 * 1024 * 1024); // between 0 and 10 MiB
         println!("abort location: {}", abort_after);

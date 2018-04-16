@@ -14,6 +14,7 @@ travis-ci = { repository = "pgerber/s4" }
 
 [dependencies]
 derive-error = "0.0"
+log = "0.4"
 fallible-iterator = "0.1"
 futures = "0.1"
 rusoto_core = "0.32"
@@ -24,4 +25,5 @@ tokio-io = "0.1"
 [dev-dependencies]
 tempdir = "0.3"
 rand = "0.4"
+env_logger = "0.5"
 quickcheck = "0.6"

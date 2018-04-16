@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
+extern crate env_logger;
 extern crate futures;
+extern crate log;
 extern crate rand;
 extern crate rusoto_core;
 extern crate rusoto_credential;
@@ -72,6 +74,12 @@ where
         .sync()
         .unwrap();
     object.body.unwrap().concat2().wait().unwrap()
+}
+
+pub fn init_logger() {
+    let _ = env_logger::Builder::from_default_env()
+        .filter(Some("s4"), log::LevelFilter::Debug)
+        .try_init();
 }
 
 pub struct ReaderWithError {

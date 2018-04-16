@@ -70,10 +70,13 @@ where
         .upload_id
         .ok_or_else(|| S4Error::Other("Missing upload ID"))?;
 
+    debug!("multi-part upload {:?} started (bucket: {}, key: {})", upload_id, target.bucket, target.key);
+
     match upload_multipart_needs_abort_on_error(&client, source, target, part_size, &upload_id) {
         ok @ Ok(_) => ok,
         err @ Err(_) => {
-            if let Err(_) = client
+            info!("aborting upload {:?} due to a failure during upload", upload_id);
+            if let Err(e) = client
                 .abort_multipart_upload(&AbortMultipartUploadRequest {
                     bucket: target.bucket.to_owned(),
                     key: target.key.to_owned(),
@@ -82,7 +85,7 @@ where
                 })
                 .sync()
             {
-                // ignore failed abortion
+                warn!("ignoring failure to abort multi-part upload: {:?}", e);
             };
             err
         }

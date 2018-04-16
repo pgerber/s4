@@ -2,6 +2,8 @@
 extern crate derive_error;
 extern crate fallible_iterator;
 extern crate futures;
+#[macro_use]
+extern crate log;
 extern crate rusoto_core;
 extern crate rusoto_credential;
 extern crate rusoto_s3;
@@ -144,6 +146,7 @@ where
     where
         F: AsRef<Path>,
     {
+        debug!("downloading to file {:?}", target.as_ref());
         let mut resp = self.get_object(source).sync()?;
         let mut body = resp.body.take().expect("no body");
         let mut target = OpenOptions::new()
@@ -159,6 +162,7 @@ where
     where
         F: AsRef<Path>,
     {
+        debug!("uploading file {:?}", source.as_ref());
         let mut source = File::open(source)?;
         upload::upload(&self, &mut source, target)
     }
@@ -173,6 +177,7 @@ where
     where
         F: AsRef<Path>,
     {
+        debug!("uploading file {:?}", source.as_ref());
         let mut source = File::open(source)?;
         upload::upload_multipart(&self, &mut source, target, part_size)
     }
