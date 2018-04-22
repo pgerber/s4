@@ -19,6 +19,21 @@ where
     exhausted: bool,
 }
 
+impl<'a, P, D> Clone for ObjectIter<'a, P, D>
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
+    fn clone(&self) -> Self {
+        ObjectIter {
+            client: self.client,
+            request: self.request.clone(),
+            objects: self.objects.clone(),
+            exhausted: self.exhausted,
+        }
+    }
+}
+
 impl<'a, P, D> ObjectIter<'a, P, D>
 where
     P: ProvideAwsCredentials,
@@ -115,6 +130,19 @@ where
 {
     inner: ObjectIter<'a, P, D>,
     request: GetObjectRequest,
+}
+
+impl<'a, P, D> Clone for GetObjectIter<'a, P, D>
+where
+    P: ProvideAwsCredentials,
+    D: DispatchSignedRequest,
+{
+    fn clone(&self) -> Self {
+        GetObjectIter {
+            inner: self.inner.clone(),
+            request: self.request.clone(),
+        }
+    }
 }
 
 impl<'a, P, D> GetObjectIter<'a, P, D>
