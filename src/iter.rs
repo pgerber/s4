@@ -4,7 +4,6 @@ use rusoto_core::DispatchSignedRequest;
 use rusoto_credential::ProvideAwsCredentials;
 use rusoto_s3::{GetObjectOutput, GetObjectRequest, ListObjectsV2Error, ListObjectsV2Request,
                 Object, S3, S3Client};
-use std::mem;
 use std::vec::IntoIter;
 
 /// Iterator over all objects or objects with a given prefix
@@ -66,14 +65,12 @@ where
     }
 
     fn last_internal(&mut self) -> Result<Option<Object>, ListObjectsV2Error> {
-        let mut objects = mem::replace(&mut self.objects, Vec::new().into_iter());
+        let mut object = self.objects.next_back();
         while !self.exhausted {
             self.next_objects()?;
-            if self.objects.len() > 0 {
-                objects = mem::replace(&mut self.objects, Vec::new().into_iter());
-            }
+            object = self.objects.next_back().or(object);
         }
-        Ok(objects.last())
+        Ok(object)
     }
 }
 
