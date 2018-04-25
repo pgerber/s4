@@ -123,6 +123,8 @@ where
 }
 
 /// Iterator retrieving all objects or objects with a given prefix
+///
+/// The iterator yields tuples of `(key, object)`.
 pub struct GetObjectIter<'a, P, D>
 where
     P: 'static + ProvideAwsCredentials,
@@ -162,14 +164,17 @@ where
         }
     }
 
-    fn retrieve(&mut self, object: Option<Object>) -> S4Result<Option<GetObjectOutput>> {
+    fn retrieve(&mut self, object: Option<Object>) -> S4Result<Option<(String, GetObjectOutput)>> {
         match object {
             Some(object) => {
                 self.request.key = object
                     .key
                     .ok_or_else(|| S4Error::Other("response is missing key"))?;
                 match self.inner.client.get_object(&self.request).sync() {
-                    Ok(o) => Ok(Some(o)),
+                    Ok(o) => {
+                        let key = mem::replace(&mut self.request.key, String::new());
+                        Ok(Some((key, o)))
+                    },
                     Err(e) => Err(e.into()),
                 }
             }
@@ -183,7 +188,7 @@ where
     P: ProvideAwsCredentials,
     D: DispatchSignedRequest,
 {
-    type Item = GetObjectOutput;
+    type Item = (String, GetObjectOutput);
     type Error = S4Error;
 
     #[inline]
