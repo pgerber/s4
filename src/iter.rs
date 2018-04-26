@@ -174,7 +174,7 @@ where
                     Ok(o) => {
                         let key = mem::replace(&mut self.request.key, String::new());
                         Ok(Some((key, o)))
-                    },
+                    }
                     Err(e) => Err(e.into()),
                 }
             }

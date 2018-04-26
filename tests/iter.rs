@@ -229,16 +229,9 @@ fn iter_get_objects_last() {
 }
 
 fn assert_key_and_body(output: S4Result<Option<(String, GetObjectOutput)>>, expected: &[u8]) {
-    let (key, object) = output
-        .unwrap()
-        .unwrap();
+    let (key, object) = output.unwrap().unwrap();
 
-    let body = object
-        .body
-        .unwrap()
-        .concat2()
-        .wait()
-        .unwrap();
+    let body = object.body.unwrap().concat2().wait().unwrap();
 
     assert_eq!(key.as_bytes(), expected);
     assert_eq!(body, expected);
